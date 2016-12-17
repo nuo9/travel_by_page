@@ -43,7 +43,7 @@ public class Traveller<P, R> {
 
         int pages = min(pageAnalyzer.getPageCount(firstPage), maxPage);
 
-        List<R> results = pageAnalyzer.analyze(firstPage);
+        List<R> results = new ArrayList<>(pageAnalyzer.analyze(firstPage));
         for (int i = 2; i <= pages; i++) {
             P content = getContent(i);
             if (content == null)
