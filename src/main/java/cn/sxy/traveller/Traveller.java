@@ -1,16 +1,17 @@
 package cn.sxy.traveller;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
+import java.util.function.Function;
 
 import static java.lang.Math.min;
 
 // P: page, R: result
 public class Traveller<P, R> {
 
-    private IContentProvider<P> contentProvider;
-    private IPageAnalyzer<P, R> pageAnalyzer;
+    private Function<Integer, P> contentProvider;
+    private Function<P, Integer> pageCountReader;
+    private Function<P, Collection<R>> pageAnalyzer;
 
     private int retry = 3;
     private long retrySleep = 100;
@@ -18,11 +19,13 @@ public class Traveller<P, R> {
     private Traveller() {
     }
 
-    public static <P, R> Traveller<P, R> create(IContentProvider<P> contentProvider, IPageAnalyzer<P, R> pageAnalyzer) {
+    public static <P, R> Traveller<P, R> create(Function<Integer, P> contentProvider,
+                                                Function<P, Integer> pageCountReader,
+                                                Function<P, Collection<R>> pageAnalyzer) {
         Traveller<P, R> t = new Traveller<>();
         t.contentProvider = contentProvider;
+        t.pageCountReader = pageCountReader;
         t.pageAnalyzer = pageAnalyzer;
-
         return t;
     }
 
@@ -32,7 +35,7 @@ public class Traveller<P, R> {
         return this;
     }
 
-    public List<R> travel(int maxPage) {
+    public ArrayList<R> travel(int maxPage) {
         if (maxPage < 1)
             throw new IllegalArgumentException("maxPage illegal");
 
@@ -41,15 +44,15 @@ public class Traveller<P, R> {
             return new ArrayList<>(0);
         }
 
-        int pages = min(pageAnalyzer.getPageCount(firstPage), maxPage);
+        int pages = min(pageCountReader.apply(firstPage), maxPage);
 
-        List<R> results = new ArrayList<>(pageAnalyzer.analyze(firstPage));
+        ArrayList<R> results = new ArrayList<>(pageAnalyzer.apply(firstPage));
         for (int i = 2; i <= pages; i++) {
             P content = getContent(i);
             if (content == null)
                 continue;
 
-            List<R> result = pageAnalyzer.analyze(content);
+            Collection<R> result = pageAnalyzer.apply(content);
             results.addAll(result);
         }
 
@@ -61,8 +64,8 @@ public class Traveller<P, R> {
 
         while (count < retry) {
             try {
-                return contentProvider.get(page);
-            } catch (IOException e) {
+                return contentProvider.apply(page);
+            } catch (Exception e) {
                 count++;
             }
 
